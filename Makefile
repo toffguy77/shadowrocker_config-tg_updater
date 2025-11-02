@@ -7,10 +7,10 @@ IMAGE_NAME?=shadowrocket-bot
 CONTAINER_NAME?=shadowrocket-bot
 PORT?=9123
 
-.PHONY: help deps lock run dev clean env docker-build docker-run docker-logs
+.PHONY: help deps lock run dev clean env docker-build docker-run docker-logs docker-stop docker-restart docker-status
 
 help:
-	@echo "Targets: deps, deps-test, lock, run, dev, docker-build, docker-run, docker-logs, test, test-unit, test-integration, test-e2e, test-all, coverage, env, clean"
+	@echo "Targets: deps, deps-test, lock, run, dev, docker-build, docker-run, docker-logs, docker-stop, docker-restart, docker-status, test, test-unit, test-integration, test-e2e, test-all, coverage, env, clean"
 # Create .venv and install deps from pyproject.toml
 deps:
 	$(UV) sync --python $(UV_PY)
@@ -49,6 +49,18 @@ dev:
 # Logs from container
 docker-logs:
 	docker logs -f $(CONTAINER_NAME)
+
+# Stop and remove container
+docker-stop:
+	@docker stop $(CONTAINER_NAME) 2>/dev/null || true
+	@docker rm $(CONTAINER_NAME) 2>/dev/null || true
+
+# Restart container
+docker-restart: docker-stop docker-run
+
+# Show container status
+docker-status:
+	docker ps -f name=$(CONTAINER_NAME)
 
 # Pytest targets
 test:
