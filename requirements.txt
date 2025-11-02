@@ -1,0 +1,7 @@
+aiogram>=3.4.0,<4.0.0
+aiohttp>=3.9.0
+pydantic>=2.5.0
+pydantic-settings>=2.2.1
+publicsuffix2>=2.20190812
+prometheus-client>=0.20.0
+python-json-logger>=2.0.7
