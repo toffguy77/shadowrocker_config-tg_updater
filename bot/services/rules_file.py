@@ -101,20 +101,43 @@ def clear_policy(lines: List[Line], idx: int) -> List[Line]:
 
 
 def delete_rule(lines: List[Line], idx: int, removed_comment: str | None = None) -> List[Line]:
+    """Soft-delete a rule: keep it as a commented line and add a Removed marker.
+
+    Behaviour:
+    - If the previous line is an "# Added:" marker, replace it with the provided
+      removed_comment (if any).
+    - The rule line at idx is converted into a plain comment with the canonical
+      rule text (two columns) so it is no longer active.
+    - If there is no preceding Added marker and removed_comment is provided, the
+      removed_comment is inserted directly above the commented rule.
+    """
     new_lines = list(lines)
-    # delete the rule line
-    del new_lines[idx]
-    # If preceding comment is an Added marker, either replace it with Removed or delete
+    if idx < 0 or idx >= len(new_lines):
+        return new_lines
+
+    l = new_lines[idx]
+    if not (l.kind == "rule" and l.rule):
+        return new_lines
+
+    # Prepare commented rule text in two-column canonical form
+    commented_text = f"# {rule_line(l.rule)}"
+
     prev = idx - 1
     if prev >= 0 and new_lines[prev].kind == "comment" and new_lines[prev].text.strip().startswith("# Added:"):
+        # Replace the Added marker with Removed (if provided)
         if removed_comment:
             new_lines[prev] = Line(kind="comment", text=removed_comment)
         else:
+            # Drop the Added marker if no replacement provided
             del new_lines[prev]
-            prev -= 1
-    elif removed_comment:
-        # Insert removed comment at the deletion site
-        new_lines.insert(idx, Line(kind="comment", text=removed_comment))
+            idx -= 1  # our target line shifts one up
+        # Convert the rule line into a comment (in-place, idx is valid after potential shift)
+        new_lines[idx] = Line(kind="comment", text=commented_text)
+    else:
+        # No Added marker above: insert Removed (if provided) and comment out the rule
+        new_lines[idx] = Line(kind="comment", text=commented_text)
+        if removed_comment:
+            new_lines.insert(idx, Line(kind="comment", text=removed_comment))
     return new_lines
 
 

@@ -24,9 +24,11 @@ def test_find_and_add_and_delete():
     rules2 = list_rules(lines2)
     idx2 = find_rule_index(lines2, RuleType.DOMAIN, "baz.com")
     assert idx2 is not None
-    after = rf_delete_rule(lines2, idx2)
+    after = rf_delete_rule(lines2, idx2, removed_comment="# Removed")
     text2 = render_lines(after)
-    assert "baz.com" not in text2
+    # soft-deleted: the rule is commented out and not active
+    assert "# DOMAIN,baz.com" in text2
+    assert find_rule_index(parse_text(text2), RuleType.DOMAIN, "baz.com") is None
 
 
 def test_clear_policy_renders_two_columns():
