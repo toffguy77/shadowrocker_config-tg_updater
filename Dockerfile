@@ -30,7 +30,8 @@ COPY bot ./bot
 FROM python:3.13-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    METRICS_ADDR=0.0.0.0:19092
 
 WORKDIR /app
 
@@ -38,8 +39,8 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/bot /app/bot
 
-# Optionally expose metrics port
-EXPOSE 9123
+# Expose Prometheus metrics port
+EXPOSE 19092
 
 # Healthcheck (lightweight ping via python import)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
