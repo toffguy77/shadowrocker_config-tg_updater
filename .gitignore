@@ -8,6 +8,7 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+WARP.md
 
 # Coverage
 .coverage
