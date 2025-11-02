@@ -66,8 +66,6 @@ def _filter_rules_by_query(rules, query: str):
                 pass
         if matched:
             result.append((idx, rule))
-    # sort like view
-    result.sort(key=lambda x: (x[1].value.lower(), x[1].type.value))
     return result
 
 
@@ -95,25 +93,26 @@ async def on_delete_query(m: Message, state: FSMContext, store: GitHubFileStore)
 
 
 def _render_delete_page(rules, page: int):
-    # Sort alphabetically by rule value (case-insensitive), then by type
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    
+    if not rules:
+        return "Ничего не найдено", InlineKeyboardBuilder(), InlineKeyboardBuilder()
+    
     sorted_rules = sorted(rules, key=lambda x: (x[1].value.lower(), x[1].type.value))
-
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
     chunk = sorted_rules[start:end]
     total = len(sorted_rules)
 
     lines = ["Выберите правило для удаления:", ""]
-    kb = []
     for i, (idx_in_file, rule) in enumerate(chunk, start=start + 1):
         lines.append(f"{i}. ❌ {rule_line(rule)}")
-    # Build buttons
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-
+    
     builder = InlineKeyboardBuilder()
-    for i, (idx_in_file, rule) in enumerate(chunk, start=start):
-        builder.button(text=f"❌ #{i+1}", callback_data=f"del:pick:{idx_in_file}:{page}")
+    for idx_in_file, rule in chunk:
+        builder.button(text=f"❌ {rule_line(rule)[:20]}", callback_data=f"del:pick:{idx_in_file}:{page}")
     builder.adjust(2)
+    
     nav = InlineKeyboardBuilder()
     if start > 0:
         nav.button(text="⬅️", callback_data=f"del:page:{page-1}")
@@ -163,7 +162,7 @@ async def on_del_pick(c: CallbackQuery, state: FSMContext, store: GitHubFileStor
         return
     i, rule = match
     await state.set_state(DeleteRule.confirming)
-    await state.update_data(delete_idx=i, preview=rule_line(rule), sha=fetched["sha"])
+    await state.update_data(delete_idx=i, preview=rule_line(rule))
 
     from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -188,22 +187,32 @@ async def on_del_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileS
         return
 
     data = await state.get_data()
-    idx = int(data["delete_idx"])
+    old_idx = int(data["delete_idx"])
     username = c.from_user.username if c.from_user else None
 
-    fetched = await store.fetch()
-    lines = parse_text(fetched["text"])
+    try:
+        fetched = await store.fetch()
+        lines = parse_text(fetched["text"])
+    except Exception as e:
+        await c.message.edit_text(f"❌ Ошибка загрузки конфига: {e}")
+        await c.answer()
+        return
 
-    if idx >= len(lines):
-        await c.message.edit_text("Не удалось удалить: список изменился. Попробуйте снова.")
+    if old_idx >= len(lines) or lines[old_idx].kind != "rule" or not lines[old_idx].rule:
+        await c.message.edit_text("Не удалось удалить: правило изменилось. Попробуйте снова.")
         await state.clear()
         await c.answer()
         return
 
     removed_cmnt = GitHubFileStore.removed_comment(username)
-    new_lines = rf_delete_rule(lines, idx, removed_comment=removed_cmnt)
+    new_lines = rf_delete_rule(lines, old_idx, removed_comment=removed_cmnt)
     new_text = render_lines(new_lines)
-    resp = await store.commit(new_text, store.commit_message_delete(data.get("preview", "rule"), username), username, None, fetched["sha"])  # type: ignore[arg-type]
+    try:
+        resp = await store.commit(new_text, store.commit_message_delete(data.get("preview", "rule"), username), username, None, fetched["sha"])  # type: ignore[arg-type]
+    except Exception as e:
+        await c.message.edit_text(f"❌ Ошибка сохранения в GitHub: {e}")
+        await c.answer()
+        return
     from bot.metrics import RULES_DELETED
     RULES_DELETED.inc()
     url = resp.get("commit", {}).get("html_url")

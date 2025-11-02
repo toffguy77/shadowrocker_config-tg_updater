@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import List, Optional, Tuple
 
 from bot.models.enums import Policy, RuleType
@@ -53,6 +53,8 @@ def parse_text(text: str) -> List[Line]:
 
 
 def render_lines(lines: List[Line]) -> str:
+    if not lines:
+        return ""
     return "\n".join(_render_line(l) for l in lines) + "\n"
 
 
@@ -84,19 +86,27 @@ def add_rule(lines: List[Line], rule: Rule, added_comment: str) -> List[Line]:
 
 
 def replace_policy(lines: List[Line], idx: int, new_policy: Policy) -> List[Line]:
-    new_lines = list(lines)
-    l = new_lines[idx]
-    assert l.kind == "rule" and l.rule
-    l.rule = Rule(type=l.rule.type, value=l.rule.value, policy=new_policy)
+    new_lines = []
+    for i, l in enumerate(lines):
+        if i == idx:
+            assert l.kind == "rule" and l.rule
+            new_rule = Rule(type=l.rule.type, value=l.rule.value, policy=new_policy)
+            new_lines.append(Line(kind=l.kind, text=l.text, rule=new_rule))
+        else:
+            new_lines.append(l)
     return new_lines
 
 
 def clear_policy(lines: List[Line], idx: int) -> List[Line]:
     """Remove policy (third column) for the given rule."""
-    new_lines = list(lines)
-    l = new_lines[idx]
-    assert l.kind == "rule" and l.rule
-    l.rule = Rule(type=l.rule.type, value=l.rule.value, policy=None)
+    new_lines = []
+    for i, l in enumerate(lines):
+        if i == idx:
+            assert l.kind == "rule" and l.rule
+            new_rule = Rule(type=l.rule.type, value=l.rule.value, policy=None)
+            new_lines.append(Line(kind=l.kind, text=l.text, rule=new_rule))
+        else:
+            new_lines.append(l)
     return new_lines
 
 

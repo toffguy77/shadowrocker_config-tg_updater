@@ -117,6 +117,13 @@ async def test_add_rule_replace_existing(monkeypatch):
     m2 = Message(message_id=2, date=dt.datetime.now(dt.timezone.utc), chat=Chat(id=1, type="private"), text="example.com")
     await on_enter_value(m2, state, store)
 
+    # Verify sha is NOT stored in state (race condition fix)
+    data = await state.get_data()
+    assert "sha" not in data
+    # Verify existing_idx IS stored for existing rules
+    assert "existing_idx" in data
+    assert data["existing_idx"] == 0
+
     # Now confirm replace
     cq2 = CallbackQuery(id="2", from_user=cuser, chat_instance="ci", data="add:confirm:replace", message=m)
     await on_confirm(cq2, state, store)

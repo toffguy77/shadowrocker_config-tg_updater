@@ -34,12 +34,6 @@ class AddRule(StatesGroup):
     confirming = State()
 
 
-@router.message(Command("cancel"))
-async def cancel_any(m: Message, state: FSMContext) -> None:
-    await state.clear()
-    await m.answer("Отменено.")
-
-
 @router.message(F.text == "➕ Добавить правило")
 async def add_entrypoint(m: Message, state: FSMContext) -> None:
     await state.clear()
@@ -68,9 +62,18 @@ async def on_choose_type(c: CallbackQuery, state: FSMContext) -> None:
     await c.answer()
 
 
+def _check_duplicate(lines, rtype, value):
+    """Check if rule exists and return (exists, has_policy, idx)."""
+    idx = find_rule_index(lines, rtype, value)
+    if idx is None:
+        return False, False, None
+    existing = lines[idx].rule
+    has_policy = existing and existing.policy is not None
+    return True, has_policy, idx
+
+
 @router.message(AddRule.entering_value)
 async def on_enter_value(m: Message, state: FSMContext, store: GitHubFileStore) -> None:
-    # Handle cancel inline in this state
     txt = (m.text or "").strip()
     if txt.startswith("/cancel"):
         await state.clear()
@@ -108,46 +111,45 @@ async def on_enter_value(m: Message, state: FSMContext, store: GitHubFileStore) 
 
     if not ok:
         from bot.metrics import INPUT_INVALID
-        INPUT_INVALID.inc()
+        INPUT_INVALID.labels(type=raw_type).inc()
         await m.answer(f"❌ Ошибка ввода\n\n{error}\n\nПопробуйте ещё раз или /cancel")
         return
 
     from bot.metrics import INPUT_VALID
-    INPUT_VALID.inc()
+    INPUT_VALID.labels(type=raw_type).inc()
 
     await state.update_data(value=norm_value)
     await state.set_state(AddRule.confirming)
 
-    # Build preview and detect duplicates immediately
     rtype = RuleType(raw_type)
     value = norm_value
 
-    fetched = await store.fetch()
-    lines = parse_text(fetched["text"])
-    idx = find_rule_index(lines, rtype, value)
+    try:
+        fetched = await store.fetch()
+        lines = parse_text(fetched["text"])
+    except Exception as e:
+        await state.clear()
+        await m.answer(f"❌ Ошибка загрузки конфига из GitHub: {e}\n\nПопробуйте позже или /cancel")
+        return
 
+    exists, has_policy, idx = _check_duplicate(lines, rtype, value)
     rule = RFRule(type=rtype, value=value, policy=None)
-    preview = (
-        f"Тип: {rtype.value}\nЗначение: {value}\n\nПравило:\n{rule_line(rule)}"
-    )
+    preview = f"Тип: {rtype.value}\nЗначение: {value}\n\nПравило:\n{rule_line(rule)}"
 
-    if idx is None:
+    if not exists:
         await m.answer(preview, reply_markup=confirm_add_kb().as_markup())
+    elif has_policy:
+        await state.update_data(existing_idx=idx)
+        await m.answer(
+            f"⚠️ Правило уже существует с политикой\n\nСтарое: {rule_line(lines[idx].rule)}\nНовое: {rule_line(rule)}\n\nЗаменить (убрать политику)?",
+            reply_markup=confirm_replace_kb().as_markup(),
+        )
     else:
-        existing = lines[idx].rule
-        # If existing has a policy (third column), offer to strip it (replace)
-        if existing and existing.policy is not None:
-            await m.answer(
-                f"⚠️ Правило уже существует с политикой\n\nСтарое: {rule_line(existing)}\nНовое: {rule_line(rule)}\n\nЗаменить (убрать политику)?",
-                reply_markup=confirm_replace_kb().as_markup(),
-            )
-            await state.update_data(existing_idx=idx, conflict=True, sha=fetched["sha"]) 
-        else:
-            await m.answer(
-                f"⚠️ Правило уже существует\n\n{rule_line(rule)}\n\nОставить старое или отменить?",
-                reply_markup=confirm_replace_kb().as_markup(),
-            )
-            await state.update_data(existing_idx=idx, conflict=False, sha=fetched["sha"]) 
+        await state.update_data(existing_idx=idx)
+        await m.answer(
+            f"⚠️ Правило уже существует\n\n{rule_line(rule)}\n\nОставить старое или отменить?",
+            reply_markup=confirm_replace_kb().as_markup(),
+        ) 
 
 
 @router.callback_query(F.data.in_({"add:confirm:add", "add:confirm:replace", "add:confirm:keep", "add:confirm:cancel"}))
@@ -162,37 +164,47 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
     data = await state.get_data()
     rtype = RuleType(data["rule_type"])  # type: ignore[arg-type]
     value = data["value"]
-
     username = c.from_user.username if c.from_user else None
 
-    # Re-fetch and re-evaluate to avoid races
-    fetched = await store.fetch()
-    lines = parse_text(fetched["text"])
-    idx = find_rule_index(lines, rtype, value)
+    try:
+        fetched = await store.fetch()
+        lines = parse_text(fetched["text"])
+    except Exception as e:
+        await c.message.edit_text(f"❌ Ошибка загрузки конфига: {e}")
+        await c.answer()
+        return
 
+    exists, has_policy, idx = _check_duplicate(lines, rtype, value)
     rule = RFRule(type=rtype, value=value, policy=None)
 
     if action == "add":
-        if idx is not None:
-            # already exists now; fall back to conflict flow
-            existing = lines[idx].rule
-            await c.message.edit_text(
-                f"⚠️ Правило уже существует\n\nСтарое: {rule_line(existing)}\nНовое: {rule_line(rule)}\n\nЗаменить?",
-                reply_markup=confirm_replace_kb().as_markup(),
-            )
-            await state.update_data(existing_idx=idx, conflict=True)
+        if exists:
+            if has_policy:
+                await c.message.edit_text(
+                    f"⚠️ Правило уже существует с политикой\n\nСтарое: {rule_line(lines[idx].rule)}\nНовое: {rule_line(rule)}\n\nЗаменить?",
+                    reply_markup=confirm_replace_kb().as_markup(),
+                )
+            else:
+                await c.message.edit_text(
+                    f"⚠️ Правило уже существует\n\n{rule_line(rule)}\n\nОставить старое?",
+                    reply_markup=confirm_replace_kb().as_markup(),
+                )
             await c.answer()
             return
         cmnt = GitHubFileStore.added_comment(username)
         new_lines = rf_add_rule(lines, rule, cmnt)
         new_text = render_lines(new_lines)
-        resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"])  # author_email optional
+        try:
+            resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"])
+        except Exception as e:
+            await c.message.edit_text(f"❌ Ошибка сохранения в GitHub: {e}")
+            await state.clear()
+            await c.answer()
+            return
         from bot.metrics import RULES_ADDED
         RULES_ADDED.inc()
         url = resp.get("commit", {}).get("html_url")
-        await c.message.edit_text(
-            f"✅ Правило добавлено\n\n{rule_line(rule)}\n\n{('Коммит: ' + url) if url else ''}"
-        )
+        await c.message.edit_text(f"✅ Правило добавлено\n\n{rule_line(rule)}\n\n{('Коммит: ' + url) if url else ''}")
         await state.clear()
         await c.answer()
         return
@@ -204,20 +216,23 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
         return
 
     if action == "replace":
-        if idx is None:
-            # was deleted meanwhile; add as new
+        existing_idx = data.get("existing_idx")
+        if existing_idx is not None and existing_idx < len(lines):
+            new_lines = rf_clear_policy(lines, existing_idx)
+        else:
             cmnt = GitHubFileStore.added_comment(username)
             new_lines = rf_add_rule(lines, rule, cmnt)
-        else:
-            # strip third column (policy) if present
-            new_lines = rf_clear_policy(lines, idx)
         new_text = render_lines(new_lines)
-        resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"])  # reuse add message
+        try:
+            resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"])
+        except Exception as e:
+            await c.message.edit_text(f"❌ Ошибка сохранения в GitHub: {e}")
+            await state.clear()
+            await c.answer()
+            return
         from bot.metrics import RULES_REPLACED
         RULES_REPLACED.inc()
         url = resp.get("commit", {}).get("html_url")
-        await c.message.edit_text(
-            f"✅ Правило сохранено\n\n{rule_line(rule)}\n\n{('Коммит: ' + url) if url else ''}"
-        )
+        await c.message.edit_text(f"✅ Правило сохранено\n\n{rule_line(rule)}\n\n{('Коммит: ' + url) if url else ''}")
         await state.clear()
         await c.answer()

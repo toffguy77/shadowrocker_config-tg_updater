@@ -62,7 +62,7 @@ async def view_config(m: Message, store: GitHubFileStore) -> None:
     except Exception:
         await m.answer("❌ Не удалось получить конфиг из GitHub. Проверьте токен и доступы.")
         return
-    INPUT_VALID.inc()
+    INPUT_VALID.labels(type="view").inc()
     await m.answer(body, reply_markup=markup)
 
 

@@ -7,9 +7,9 @@ from prometheus_client import Counter, Histogram, start_http_server
 RULES_ADDED = Counter("rules_added_total", "Number of rules added")
 RULES_REPLACED = Counter("rules_replaced_total", "Number of rules replaced (policy changed)")
 RULES_DELETED = Counter("rules_deleted_total", "Number of rules deleted")
-INPUT_VALID = Counter("input_valid_total", "Valid user inputs")
-INPUT_INVALID = Counter("input_invalid_total", "Invalid user inputs")
-GITHUB_ERRORS = Counter("github_errors_total", "GitHub API errors")
+INPUT_VALID = Counter("input_valid_total", "Valid user inputs", ["type"])
+INPUT_INVALID = Counter("input_invalid_total", "Invalid user inputs", ["type"])
+GITHUB_ERRORS = Counter("github_errors_total", "GitHub API errors", ["operation"])
 
 # Histograms
 GITHUB_FETCH_SECONDS = Histogram(

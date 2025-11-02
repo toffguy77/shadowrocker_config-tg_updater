@@ -1,13 +1,18 @@
+import logging
 from typing import Callable, Awaitable, Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
+
+logger = logging.getLogger(__name__)
 
 
 class AccessMiddleware(BaseMiddleware):
     def __init__(self, allowed_users: list[int] | None = None) -> None:
         super().__init__()
         self.allowed = set(allowed_users or [])
+        if not self.allowed:
+            logger.warning("⚠️ ALLOWED_USERS is empty - bot is accessible to everyone! Set ALLOWED_USERS in .env for security.")
 
     async def __call__(self, handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]], event: TelegramObject, data: dict[str, Any]) -> Any:
         if not self.allowed:

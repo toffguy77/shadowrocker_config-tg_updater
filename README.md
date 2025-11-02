@@ -61,7 +61,12 @@ Examples:
 ## Observability
 
 - Prometheus metrics exported at `METRICS_ADDR` (default `0.0.0.0:9123`).
-- Key metrics include GitHub fetch/commit histograms and counters for rule operations and input validity.
+- Key metrics include:
+  - **Rule operations**: `rules_added_total`, `rules_replaced_total`, `rules_deleted_total`
+  - **Input validation** (with labels): `input_valid_total{type}`, `input_invalid_total{type}`
+  - **GitHub API** (with labels): `github_errors_total{operation}`, `github_fetch_seconds`, `github_commit_seconds`
+- **Grafana dashboard**: Import `grafana_dashboard.json` for comprehensive monitoring
+  - See [DASHBOARD.md](DASHBOARD.md) for details
 
 ## Docker (optional)
 

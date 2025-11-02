@@ -36,3 +36,15 @@ def test_describe_rule():
     r = Rule(type=RuleType.DOMAIN, value="site.com", policy=Policy.DIRECT)
     s = describe_rule(r)
     assert "site.com" in s and "DIRECT" not in s
+
+
+def test_render_empty_file():
+    """Test that empty file renders as empty string, not newline."""
+    lines = []
+    text = render_lines(lines)
+    assert text == ""
+    
+    # Test with only comments
+    lines = parse_text("# comment\n")
+    text = render_lines(lines)
+    assert text == "# comment\n"

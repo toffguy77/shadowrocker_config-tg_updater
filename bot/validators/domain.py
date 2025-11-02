@@ -50,6 +50,12 @@ def _registrable_domain(host: str) -> str:
 
 def normalize_domain_suffix(raw: str) -> Tuple[bool, str]:
     host = _clean_host(raw)
+    if len(host) < 3 or len(host) > 253:
+        return False, (
+            "Не удалось распознать домен. Проверьте: латиница/цифры/.-, длина 3-253, должен содержать точку (example.com)."
+        )
+    if any(len(label) > 63 for label in host.split('.')):
+        return False, "Метка домена не может быть длиннее 63 символов."
     if not DOMAIN_RE.match(host):
         return False, (
             "Не удалось распознать домен. Проверьте: латиница/цифры/.-, длина 3-253, должен содержать точку (example.com)."
@@ -60,6 +66,12 @@ def normalize_domain_suffix(raw: str) -> Tuple[bool, str]:
 
 def normalize_domain_exact(raw: str) -> Tuple[bool, str]:
     host = _clean_host(raw)
+    if len(host) < 3 or len(host) > 253:
+        return False, (
+            "Не удалось распознать домен. Проверьте: латиница/цифры/.-, длина 3-253, должен содержать точку (example.com)."
+        )
+    if any(len(label) > 63 for label in host.split('.')):
+        return False, "Метка домена не может быть длиннее 63 символов."
     if not DOMAIN_RE.match(host):
         return False, (
             "Не удалось распознать домен. Проверьте: латиница/цифры/.-, длина 3-253, должен содержать точку (example.com)."

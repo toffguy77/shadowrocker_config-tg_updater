@@ -67,6 +67,10 @@ async def test_delete_rule_yes(monkeypatch):
     cuser = User(id=123, is_bot=False, first_name="U")
     cq = CallbackQuery(id="1", from_user=cuser, chat_instance="ci", data="del:pick:0:0", message=m)
     await on_del_pick(cq, state, store)
+    
+    # Verify sha is NOT stored in state (race condition fix)
+    data = await state.get_data()
+    assert "sha" not in data
 
     # confirm deletion
     cq2 = CallbackQuery(id="2", from_user=cuser, chat_instance="ci", data="del:confirm:yes", message=m)
