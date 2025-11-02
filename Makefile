@@ -2,11 +2,15 @@ UV=uv
 PY=python
 UV_PY=3.13
 
-.PHONY: help deps lock run dev clean env
+# Dockerized runtime
+IMAGE_NAME?=shadowrocket-bot
+CONTAINER_NAME?=shadowrocket-bot
+PORT?=9123
+
+.PHONY: help deps lock run dev clean env docker-build logs
 
 help:
-	@echo "Targets: deps, deps-test, lock, test, test-unit, test-integration, test-e2e, test-all, coverage, run, dev, env, clean"
-
+	@echo "Targets: deps, deps-test, lock, docker-build, run, logs, dev, test, test-unit, test-integration, test-e2e, test-all, coverage, env, clean"
 # Create .venv and install deps from pyproject.toml
 deps:
 	$(UV) sync --python $(UV_PY)
@@ -19,13 +23,27 @@ deps-test:
 lock:
 	$(UV) lock --python $(UV_PY)
 
-# Run bot (uses .env)
-run:
-	$(UV) run --python $(UV_PY) $(PY) -m bot.main
+# Build Docker image
+docker-build:
+	docker build -t $(IMAGE_NAME) .
+# Dockerized run (background with restart)
+run: docker-build
+	@docker stop $(CONTAINER_NAME) 2>/dev/null || true
+	@docker rm $(CONTAINER_NAME) 2>/dev/null || true
+	docker run -d \
+		--name $(CONTAINER_NAME) \
+		--env-file .env \
+		-p $(PORT):$(PORT) \
+		--restart always \
+		$(IMAGE_NAME)
 
-# Dev run with verbose logs
+# Dev run with verbose logs (local venv)
 dev:
 	LOG_LEVEL=DEBUG $(UV) run --python $(UV_PY) $(PY) -m bot.main
+
+# Logs from container
+logs:
+	docker logs -f $(CONTAINER_NAME)
 
 # Pytest targets
 test:
