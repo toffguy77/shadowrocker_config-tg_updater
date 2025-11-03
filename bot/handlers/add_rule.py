@@ -77,13 +77,13 @@ async def on_enter_value(m: Message, state: FSMContext, store: GitHubFileStore) 
     txt = (m.text or "").strip()
     if txt.startswith("/cancel"):
         await state.clear()
-        await m.answer("Отменено.")
+        await m.answer("❌ Отменено")
         return
 
     data = await state.get_data()
     raw_type = data.get("rule_type")
     if not raw_type:
-        await m.answer("Сначала выберите тип правила.")
+        await m.answer("⚠️ Сначала выберите тип правила")
         return
 
     value_raw = (m.text or "").strip()
@@ -124,12 +124,16 @@ async def on_enter_value(m: Message, state: FSMContext, store: GitHubFileStore) 
     rtype = RuleType(raw_type)
     value = norm_value
 
+    loading_msg = await m.answer("⌛ Проверяю конфиг...")
     try:
         fetched = await store.fetch()
         lines = parse_text(fetched["text"])
-    except Exception as e:
+        if loading_msg:
+            await loading_msg.delete()
+    except Exception:
+        if loading_msg:
+            await loading_msg.edit_text("❌ Ошибка загрузки конфига")
         await state.clear()
-        await m.answer(f"❌ Ошибка загрузки конфига из GitHub: {e}\n\nПопробуйте позже или /cancel")
         return
 
     exists, has_policy, idx = _check_duplicate(lines, rtype, value)
@@ -202,11 +206,15 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
             await c.answer()
             return
         from bot.metrics import RULES_ADDED
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
         RULES_ADDED.inc()
         url = resp.get("commit", {}).get("html_url")
-        await c.message.edit_text(f"✅ Правило добавлено\n\n{rule_line(rule)}\n\n{('Коммит: ' + url) if url else ''}")
+        kb = InlineKeyboardBuilder()
+        if url:
+            kb.button(text="🔗 Посмотреть коммит", url=url)
+        await c.message.edit_text(f"✅ <b>Правило добавлено</b>\n\n<code>{rule_line(rule)}</code>", reply_markup=kb.as_markup() if kb.buttons else None)
         await state.clear()
-        await c.answer()
+        await c.answer("✅ Готово!")
         return
 
     if action == "keep":
@@ -231,8 +239,12 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
             await c.answer()
             return
         from bot.metrics import RULES_REPLACED
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
         RULES_REPLACED.inc()
         url = resp.get("commit", {}).get("html_url")
-        await c.message.edit_text(f"✅ Правило сохранено\n\n{rule_line(rule)}\n\n{('Коммит: ' + url) if url else ''}")
+        kb = InlineKeyboardBuilder()
+        if url:
+            kb.button(text="🔗 Посмотреть коммит", url=url)
+        await c.message.edit_text(f"✅ <b>Правило сохранено</b>\n\n<code>{rule_line(rule)}</code>", reply_markup=kb.as_markup() if kb.buttons else None)
         await state.clear()
-        await c.answer()
+        await c.answer("✅ Готово!")

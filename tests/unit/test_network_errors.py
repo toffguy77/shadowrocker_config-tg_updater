@@ -1,5 +1,6 @@
 import datetime as dt
 import pytest
+from unittest.mock import MagicMock, AsyncMock
 from aiogram.types import Message, Chat, CallbackQuery, User
 
 from bot.handlers.add_rule import on_enter_value, on_confirm, AddRule
@@ -43,6 +44,10 @@ async def test_add_rule_fetch_error(monkeypatch):
 
     async def m_answer(self, text, **kwargs):
         sent["texts"].append(text)
+        mock_msg = MagicMock()
+        mock_msg.edit_text = AsyncMock(side_effect=lambda t, **kw: sent["texts"].append(t))
+        mock_msg.delete = AsyncMock()
+        return mock_msg
 
     monkeypatch.setattr(Message, "answer", m_answer)
 

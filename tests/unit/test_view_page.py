@@ -7,8 +7,8 @@ def test_render_page_sorted_and_paged():
     vals = ["z.com", "a.com", "m.com", "b.com"] + [f"x{i}.com" for i in range(30)]
     rules = list(enumerate([Rule(type=RuleType.DOMAIN, value=v, policy=None) for v in vals]))
 
-    body, kb = _render_page(rules, page=0)
-    assert "📋 Всего правил:" in body
+    body, kb = _render_page(rules, page=0, rule_type="ALL", all_rules=rules)
+    assert "📋 Показано:" in body
     # First page should include 20 items; ensure 'a.com' appears before 'b.com' and 'z.com'
     a_idx = body.find("a.com")
     b_idx = body.find("b.com")
@@ -22,5 +22,5 @@ def test_render_page_sorted_and_paged():
     assert any(cd and cd.endswith(":page:1") for cd in flat)
 
     # Page 1
-    body2, kb2 = _render_page(rules, page=1)
-    assert "📋 Всего правил:" in body2
+    body2, kb2 = _render_page(rules, page=1, rule_type="ALL", all_rules=rules)
+    assert "📋 Показано:" in body2

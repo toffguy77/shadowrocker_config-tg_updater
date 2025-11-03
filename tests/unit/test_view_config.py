@@ -23,7 +23,7 @@ class FakeStore:
 async def test_build_view_response_all():
     store = FakeStore()
     body, markup = await build_view_response(store, policy="ALL", page=0)
-    assert "Всего правил: 2" in body
+    assert "Показано: 2" in body
     assert hasattr(markup, "inline_keyboard")
 
 

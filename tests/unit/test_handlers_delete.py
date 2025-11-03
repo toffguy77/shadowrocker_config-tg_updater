@@ -76,4 +76,4 @@ async def test_delete_rule_yes(monkeypatch):
     cq2 = CallbackQuery(id="2", from_user=cuser, chat_instance="ci", data="del:confirm:yes", message=m)
     await on_del_confirm(cq2, state, store)
 
-    assert any("✅ Правило удалено" in t for t in sent["edited"])
+    assert any("✅" in t and "удалено" in t for t in sent["edited"])

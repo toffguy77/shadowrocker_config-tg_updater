@@ -1,5 +1,6 @@
 import datetime as dt
 import pytest
+from unittest.mock import MagicMock, AsyncMock
 from aiogram.types import Message, Chat, User
 
 from bot.handlers.normalize import normalize_config
@@ -29,14 +30,15 @@ async def test_normalize_handles_fetch_error(monkeypatch):
     
     async def m_answer(self, text, **kwargs):
         sent.append(text)
+        mock_msg = MagicMock()
+        mock_msg.edit_text = AsyncMock(side_effect=lambda t, **kw: sent.append(t))
+        return mock_msg
     
     monkeypatch.setattr(Message, "answer", m_answer)
     
     await normalize_config(m, store)
     
-    assert len(sent) == 1
-    assert "❌ Ошибка нормализации" in sent[0]
-    assert "Network error" in sent[0]
+    assert any("❌ Ошибка нормализации" in t for t in sent)
 
 
 class CommitFailStore(GitHubFileStore):
@@ -65,11 +67,12 @@ async def test_normalize_handles_commit_error(monkeypatch):
     
     async def m_answer(self, text, **kwargs):
         sent.append(text)
+        mock_msg = MagicMock()
+        mock_msg.edit_text = AsyncMock(side_effect=lambda t, **kw: sent.append(t))
+        return mock_msg
     
     monkeypatch.setattr(Message, "answer", m_answer)
     
     await normalize_config(m, store)
     
-    assert len(sent) == 1
-    assert "❌ Ошибка нормализации" in sent[0]
-    assert "Commit failed" in sent[0]
+    assert any("❌ Ошибка нормализации" in t for t in sent)

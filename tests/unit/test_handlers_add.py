@@ -85,7 +85,7 @@ async def test_add_rule_new_flow(monkeypatch):
     cq2 = CallbackQuery(id="2", from_user=cuser, chat_instance="ci", data="add:confirm:add", message=m)
     await on_confirm(cq2, state, store)
 
-    assert any("✅ Правило добавлено" in t for t in sent["edited"])  # final message
+    assert any("✅" in t and "добавлено" in t for t in sent["edited"])  # final message
 
 
 @pytest.mark.asyncio
@@ -127,4 +127,4 @@ async def test_add_rule_replace_existing(monkeypatch):
     # Now confirm replace
     cq2 = CallbackQuery(id="2", from_user=cuser, chat_instance="ci", data="add:confirm:replace", message=m)
     await on_confirm(cq2, state, store)
-    assert any("✅ Правило сохранено" in t for t in sent["edited"])
+    assert any("✅" in t and "сохранено" in t for t in sent["edited"])

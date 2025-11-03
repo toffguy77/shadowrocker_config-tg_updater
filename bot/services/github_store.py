@@ -134,3 +134,16 @@ class GitHubFileStore:
         uname = f"@{username}" if username else "unknown"
         ts = now.strftime("%Y-%m-%d %H:%M:%S UTC")
         return f"# Removed: {ts} | User: {uname}"
+
+    async def get_recent_commits(self, limit: int = 5) -> list[Dict[str, Any]]:
+        url = f"{GITHUB_API}/repos/{self.owner}/{self.repo}/commits"
+        params = {"path": self.path, "sha": self.branch, "per_page": limit}
+        try:
+            timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
+            async with aiohttp.ClientSession(timeout=timeout) as s:
+                async with s.get(url, headers=await self._headers(), params=params) as r:
+                    r.raise_for_status()
+                    return await r.json()
+        except Exception as e:
+            logger.error(f"GitHub get_recent_commits exception: {e}")
+            return []

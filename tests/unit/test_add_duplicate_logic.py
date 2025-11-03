@@ -1,5 +1,6 @@
 import datetime as dt
 import pytest
+from unittest.mock import MagicMock, AsyncMock
 from aiogram.types import Message, Chat, CallbackQuery, User
 
 from bot.handlers.add_rule import on_enter_value, on_confirm, AddRule
@@ -55,6 +56,10 @@ async def test_add_duplicate_without_policy_shows_keep(monkeypatch):
     
     async def m_answer(self, text, **kwargs):
         sent.append(text)
+        mock_msg = MagicMock()
+        mock_msg.edit_text = AsyncMock(side_effect=lambda t, **kw: sent.append(t))
+        mock_msg.delete = AsyncMock()
+        return mock_msg
     
     monkeypatch.setattr(Message, "answer", m_answer)
     
@@ -122,6 +127,10 @@ async def test_state_cleared_on_github_error(monkeypatch):
     
     async def m_answer(self, text, **kwargs):
         sent.append(text)
+        mock_msg = MagicMock()
+        mock_msg.edit_text = AsyncMock(side_effect=lambda t, **kw: sent.append(t))
+        mock_msg.delete = AsyncMock()
+        return mock_msg
     
     monkeypatch.setattr(Message, "answer", m_answer)
     

@@ -73,13 +73,21 @@ def _filter_rules_by_query(rules, query: str):
 async def on_delete_query(m: Message, state: FSMContext, store: GitHubFileStore) -> None:
     q = (m.text or "").strip()
     if not q:
-        await m.answer("Пустой запрос. Пришлите URL/домен/ключевое слово или IP.")
+        await m.answer("⚠️ Пустой запрос")
         return
-    fetched = await store.fetch()
-    rules_all = list_rules(parse_text(fetched["text"]))
-    filtered = _filter_rules_by_query(rules_all, q)
+    loading_msg = await m.answer("⌛ Ищу...")
+    try:
+        fetched = await store.fetch()
+        rules_all = list_rules(parse_text(fetched["text"]))
+        filtered = _filter_rules_by_query(rules_all, q)
+        if loading_msg:
+            await loading_msg.delete()
+    except Exception:
+        if loading_msg:
+            await loading_msg.edit_text("❌ Ошибка загрузки")
+        return
     if not filtered:
-        await m.answer("Ничего не найдено по запросу.")
+        await m.answer("🔍 Ничего не найдено")
         return
     await state.update_data(delete_filter=q)
     await state.set_state(DeleteRule.choosing_rule)
@@ -214,8 +222,12 @@ async def on_del_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileS
         await c.answer()
         return
     from bot.metrics import RULES_DELETED
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
     RULES_DELETED.inc()
     url = resp.get("commit", {}).get("html_url")
-    await c.message.edit_text(f"✅ Правило удалено\n\n{data.get('preview', '')}\n\n{('Коммит: ' + url) if url else ''}")
+    kb = InlineKeyboardBuilder()
+    if url:
+        kb.button(text="🔗 Посмотреть коммит", url=url)
+    await c.message.edit_text(f"✅ <b>Правило удалено</b>\n\n<code>{data.get('preview', '')}</code>", reply_markup=kb.as_markup() if kb.buttons else None)
     await state.clear()
-    await c.answer()
+    await c.answer("✅ Удалено!")

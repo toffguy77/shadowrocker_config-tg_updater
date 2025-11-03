@@ -49,4 +49,4 @@ async def test_cancel_inline_in_entering_value(monkeypatch):
     await on_enter_value(m, state, store)
 
     assert state.cleared is True
-    assert sent["text"] == "Отменено."
+    assert "Отменено" in sent["text"]
