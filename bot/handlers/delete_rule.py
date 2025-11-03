@@ -97,7 +97,7 @@ async def on_delete_query(m: Message, state: FSMContext, store: GitHubFileStore)
     nav_markup = nav.as_markup()
     if getattr(nav_markup, "inline_keyboard", None):
         kb.inline_keyboard.append(nav_markup.inline_keyboard[0])
-    await m.answer(body, reply_markup=kb)
+    await m.answer(body, reply_markup=kb, parse_mode="Markdown")
 
 
 def _render_delete_page(rules, page: int):
@@ -114,12 +114,12 @@ def _render_delete_page(rules, page: int):
 
     lines = ["Выберите правило для удаления:", ""]
     for i, (idx_in_file, rule) in enumerate(chunk, start=start + 1):
-        lines.append(f"{i}. ❌ {rule_line(rule)}")
+        lines.append(f"{i}. `{rule_line(rule)}`")
     
     builder = InlineKeyboardBuilder()
-    for idx_in_file, rule in chunk:
-        builder.button(text=f"❌ {rule_line(rule)[:20]}", callback_data=f"del:pick:{idx_in_file}:{page}")
-    builder.adjust(2)
+    for i, (idx_in_file, rule) in enumerate(chunk, start=start + 1):
+        builder.button(text=f"❌ {i}", callback_data=f"del:pick:{idx_in_file}:{page}")
+    builder.adjust(5)
     
     nav = InlineKeyboardBuilder()
     if start > 0:
@@ -149,7 +149,7 @@ async def on_del_page(c: CallbackQuery, state: FSMContext, store: GitHubFileStor
     nav_markup = nav.as_markup()
     if getattr(nav_markup, "inline_keyboard", None):
         kb.inline_keyboard.append(nav_markup.inline_keyboard[0])
-    await c.message.edit_text(body, reply_markup=kb)
+    await c.message.edit_text(body, reply_markup=kb, parse_mode="Markdown")
     await c.answer()
 
 
