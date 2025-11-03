@@ -32,4 +32,4 @@ async def test_view_config_message_flow(monkeypatch):
     store = FakeStore("DOMAIN,example.com,PROXY\n")
     await view_config(m, store)
 
-    assert sent["text"] and "Всего правил" in sent["text"]
+    assert sent["text"] and "Показано:" in sent["text"]
