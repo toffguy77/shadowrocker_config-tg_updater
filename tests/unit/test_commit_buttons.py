@@ -21,7 +21,7 @@ async def test_add_rule_commit_button():
     c.answer = AsyncMock()
     
     state = AsyncMock()
-    state.get_data.return_value = {"rule_type": "DOMAIN", "value": "google.com"}
+    state.get_data.return_value = {"rule_type": "DOMAIN", "value": "google.com", "policy": "PROXY"}
     state.clear = AsyncMock()
     
     await on_confirm(c, state, store)

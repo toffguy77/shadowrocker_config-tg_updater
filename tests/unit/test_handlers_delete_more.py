@@ -22,10 +22,10 @@ class StoreText(GitHubFileStore):
     def __init__(self, text):
         self._text = text
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         return {"sha": "sha0", "text": self._text}
 
-    async def commit(self, *args, **kwargs):
+    async def commit(self, *args, file_path=None, **kwargs):
         return {"commit": {"html_url": "https://example.com/commit/d"}}
 
 

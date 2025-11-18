@@ -30,8 +30,11 @@ class StoreWithoutPolicy(GitHubFileStore):
     """Store with existing rule without policy."""
     def __init__(self):
         pass
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        return "rules/private.list"
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         return {"sha": "sha1", "text": "DOMAIN,example.com\n"}
 
     async def commit(self, *args, **kwargs):
@@ -43,7 +46,7 @@ async def test_add_duplicate_without_policy_shows_keep(monkeypatch):
     """Test that adding duplicate rule without policy shows 'keep' option."""
     store = StoreWithoutPolicy()
     state = FakeState()
-    state._data = {"rule_type": "DOMAIN"}
+    state._data = {"rule_type": "DOMAIN", "policy": "PROXY"}
     
     m = Message(
         message_id=1,
@@ -79,7 +82,7 @@ async def test_add_confirm_with_existing_no_policy_shows_keep(monkeypatch):
     """Test that confirming add when rule exists without policy shows keep option."""
     store = StoreWithoutPolicy()
     state = FakeState()
-    state._data = {"rule_type": "DOMAIN", "value": "example.com"}
+    state._data = {"rule_type": "DOMAIN", "policy": "PROXY", "value": "example.com"}
     
     cuser = User(id=123, is_bot=False, first_name="U")
     m = Message(message_id=1, date=dt.datetime.now(dt.timezone.utc), chat=Chat(id=1, type="private"))
@@ -109,12 +112,14 @@ async def test_state_cleared_on_github_error(monkeypatch):
     class FailStore(GitHubFileStore):
         def __init__(self):
             pass
-        async def fetch(self):
+        def get_path_for_policy(self, policy: str) -> str:
+            return "rules/private.list"
+        async def fetch(self, file_path: str = None):
             raise Exception("Network error")
     
     store = FailStore()
     state = FakeState()
-    state._data = {"rule_type": "DOMAIN"}
+    state._data = {"rule_type": "DOMAIN", "policy": "PROXY"}
     
     m = Message(
         message_id=1,

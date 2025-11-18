@@ -13,13 +13,13 @@ async def test_github_store_fetch_success(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
     content = base64.b64encode(b"hello world\n").decode("ascii")
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
 
     with aioresponses() as m:
         m.get(f"{url}?ref=main", payload={"content": content, "sha": "abc"}, status=200)
@@ -36,11 +36,11 @@ async def test_github_store_commit_success(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
 
     payload_captured = {}
 

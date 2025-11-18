@@ -24,9 +24,17 @@ class GitHubFileStore:
     def __init__(self, settings: Settings) -> None:
         self.owner = settings.github_owner
         self.repo = settings.github_repo
-        self.path = settings.github_path
+        self.path_proxy = settings.github_path_proxy
+        self.path_direct = settings.github_path_direct
         self.branch = settings.github_branch
         self.token = settings.github_token
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        """Get file path based on policy (PROXY -> proxy path, DIRECT -> direct path)"""
+        from bot.models.enums import Policy
+        if policy == Policy.DIRECT.value:
+            return self.path_direct
+        return self.path_proxy
 
     async def _headers(self) -> Dict[str, str]:
         return {
@@ -35,8 +43,9 @@ class GitHubFileStore:
             "User-Agent": "tg-shadowrocket-bot/1.0",
         }
 
-    async def fetch(self, retry: int = 2) -> Dict[str, Any]:
-        url = f"{GITHUB_API}/repos/{self.owner}/{self.repo}/contents/{self.path}"
+    async def fetch(self, retry: int = 2, file_path: str | None = None) -> Dict[str, Any]:
+        path = file_path or self.path_proxy
+        url = f"{GITHUB_API}/repos/{self.owner}/{self.repo}/contents/{path}"
         params = {"ref": self.branch}
         start = time.perf_counter()
         try:
@@ -47,7 +56,7 @@ class GitHubFileStore:
                         logger.warning(f"GitHub fetch server error ({r.status}), retrying")
                         metrics.GITHUB_ERRORS.labels(operation="fetch").inc()
                         await asyncio.sleep(0.5)
-                        return await self.fetch(retry=retry - 1)
+                        return await self.fetch(retry=retry - 1, file_path=file_path)
                     if r.status >= 400:
                         logger.error(f"GitHub fetch failed: {r.status} {await r.text()}")
                         metrics.GITHUB_ERRORS.labels(operation="fetch").inc()
@@ -60,15 +69,16 @@ class GitHubFileStore:
                 logger.warning(f"GitHub fetch exception: {e}, retrying")
                 metrics.GITHUB_ERRORS.labels(operation="fetch").inc()
                 await asyncio.sleep(0.5)
-                return await self.fetch(retry=retry - 1)
+                return await self.fetch(retry=retry - 1, file_path=file_path)
             logger.error(f"GitHub fetch exception: {e}")
             metrics.GITHUB_ERRORS.labels(operation="fetch").inc()
             raise
         finally:
             metrics.GITHUB_FETCH_SECONDS.observe(time.perf_counter() - start)
 
-    async def commit(self, new_text: str, message: str, author_name: str | None, author_email: str | None, base_sha: str, retry: int = 2) -> Dict[str, Any]:
-        url = f"{GITHUB_API}/repos/{self.owner}/{self.repo}/contents/{self.path}"
+    async def commit(self, new_text: str, message: str, author_name: str | None, author_email: str | None, base_sha: str, retry: int = 2, file_path: str | None = None) -> Dict[str, Any]:
+        path = file_path or self.path_proxy
+        url = f"{GITHUB_API}/repos/{self.owner}/{self.repo}/contents/{path}"
         payload = {
             "message": message,
             "content": base64.b64encode(new_text.encode("utf-8")).decode("ascii"),
@@ -88,14 +98,14 @@ class GitHubFileStore:
                     if r.status == 409 and retry > 0:
                         logger.warning(f"GitHub commit conflict (409), retrying with fresh sha. WARNING: changes may overwrite concurrent modifications")
                         await asyncio.sleep(0.5)
-                        latest = await self.fetch()
-                        return await self.commit(new_text, message, author_name, author_email, latest["sha"], retry=retry - 1)
+                        latest = await self.fetch(file_path=path)
+                        return await self.commit(new_text, message, author_name, author_email, latest["sha"], retry=retry - 1, file_path=path)
                     if r.status >= 500 and retry > 0:
                         logger.warning(f"GitHub server error ({r.status}), retrying")
                         metrics.GITHUB_ERRORS.labels(operation="commit").inc()
                         await asyncio.sleep(0.5)
-                        latest = await self.fetch()
-                        return await self.commit(new_text, message, author_name, author_email, latest["sha"], retry=retry - 1)
+                        latest = await self.fetch(file_path=path)
+                        return await self.commit(new_text, message, author_name, author_email, latest["sha"], retry=retry - 1, file_path=path)
                     if r.status >= 400:
                         logger.error(f"GitHub commit failed: {r.status} {await r.text()}")
                         metrics.GITHUB_ERRORS.labels(operation="commit").inc()
@@ -137,7 +147,7 @@ class GitHubFileStore:
 
     async def get_recent_commits(self, limit: int = 5) -> list[Dict[str, Any]]:
         url = f"{GITHUB_API}/repos/{self.owner}/{self.repo}/commits"
-        params = {"path": self.path, "sha": self.branch, "per_page": limit}
+        params = {"path": self.path_proxy, "sha": self.branch, "per_page": limit}
         try:
             timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
             async with aiohttp.ClientSession(timeout=timeout) as s:

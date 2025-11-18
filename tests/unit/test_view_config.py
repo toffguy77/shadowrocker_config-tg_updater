@@ -14,8 +14,11 @@ DOMAIN,another.com,DIRECT
 class FakeStore:
     def __init__(self, text=SAMPLE_TEXT):
         self._text = text
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        return "rules/private.list"
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         return {"sha": "sha", "text": self._text}
 
 

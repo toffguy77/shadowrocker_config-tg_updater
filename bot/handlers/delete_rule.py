@@ -19,6 +19,7 @@ PAGE_SIZE = 20
 
 
 class DeleteRule(StatesGroup):
+    choosing_file = State()
     entering_query = State()
     choosing_rule = State()
     confirming = State()
@@ -75,9 +76,14 @@ async def on_delete_query(m: Message, state: FSMContext, store: GitHubFileStore)
     if not q:
         await m.answer("⚠️ Пустой запрос")
         return
+    
+    data = await state.get_data()
+    file_type = data.get("file_type", "PROXY")
+    
     loading_msg = await m.answer("⌛ Ищу...")
     try:
-        fetched = await store.fetch()
+        file_path = store.get_path_for_policy(file_type)
+        fetched = await store.fetch(file_path=file_path)
         rules_all = list_rules(parse_text(fetched["text"]))
         filtered = _filter_rules_by_query(rules_all, q)
         if loading_msg:
@@ -132,8 +138,22 @@ def _render_delete_page(rules, page: int):
 @router.message(F.text == "🗑️ Удалить правило")
 async def delete_entrypoint(m: Message, state: FSMContext, store: GitHubFileStore) -> None:
     await state.clear()
+    await state.set_state(DeleteRule.choosing_file)
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🚀 PROXY файл", callback_data="del:file:PROXY")
+    kb.button(text="⚡ DIRECT файл", callback_data="del:file:DIRECT")
+    kb.adjust(1)
+    await m.answer("Выберите файл для удаления правила:", reply_markup=kb.as_markup())
+
+
+@router.callback_query(F.data.startswith("del:file:"))
+async def on_delete_file_select(c: CallbackQuery, state: FSMContext) -> None:
+    _, _, file_type = c.data.split(":", 2)
+    await state.update_data(file_type=file_type)
     await state.set_state(DeleteRule.entering_query)
-    await m.answer("Пришлите URL/домен/ключевое слово или IP для поиска.\n\nОтмена: /cancel")
+    await c.message.edit_text(f"Пришлите URL/домен/ключевое слово или IP для поиска в {file_type} файле.\n\nОтмена: /cancel")
+    await c.answer()
 
 
 @router.callback_query(F.data.startswith("del:page:"))
@@ -141,7 +161,9 @@ async def on_del_page(c: CallbackQuery, state: FSMContext, store: GitHubFileStor
     page = int(c.data.split(":")[-1])
     data = await state.get_data()
     q = (data.get("delete_filter") or "").strip()
-    fetched = await store.fetch()
+    file_type = data.get("file_type", "PROXY")
+    file_path = store.get_path_for_policy(file_type)
+    fetched = await store.fetch(file_path=file_path)
     rules_all = list_rules(parse_text(fetched["text"]))
     rules = _filter_rules_by_query(rules_all, q)
     body, btns, nav = _render_delete_page(rules, page)
@@ -158,7 +180,10 @@ async def on_del_pick(c: CallbackQuery, state: FSMContext, store: GitHubFileStor
     _, _, idx_str, page_str = c.data.split(":")
     idx_in_file = int(idx_str)
 
-    fetched = await store.fetch()
+    data = await state.get_data()
+    file_type = data.get("file_type", "PROXY")
+    file_path = store.get_path_for_policy(file_type)
+    fetched = await store.fetch(file_path=file_path)
     lines = parse_text(fetched["text"])
 
     rules = list_rules(lines)
@@ -196,10 +221,12 @@ async def on_del_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileS
 
     data = await state.get_data()
     old_idx = int(data["delete_idx"])
+    file_type = data.get("file_type", "PROXY")
     username = c.from_user.username if c.from_user else None
 
     try:
-        fetched = await store.fetch()
+        file_path = store.get_path_for_policy(file_type)
+        fetched = await store.fetch(file_path=file_path)
         lines = parse_text(fetched["text"])
     except Exception as e:
         await c.message.edit_text(f"❌ Ошибка загрузки конфига: {e}")
@@ -216,7 +243,7 @@ async def on_del_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileS
     new_lines = rf_delete_rule(lines, old_idx, removed_comment=removed_cmnt)
     new_text = render_lines(new_lines)
     try:
-        resp = await store.commit(new_text, store.commit_message_delete(data.get("preview", "rule"), username), username, None, fetched["sha"])  # type: ignore[arg-type]
+        resp = await store.commit(new_text, store.commit_message_delete(data.get("preview", "rule"), username), username, None, fetched["sha"], file_path=file_path)  # type: ignore[arg-type]
     except Exception as e:
         await c.message.edit_text(f"❌ Ошибка сохранения в GitHub: {e}")
         await c.answer()

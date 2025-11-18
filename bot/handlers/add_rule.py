@@ -30,6 +30,7 @@ router = Router()
 
 class AddRule(StatesGroup):
     choosing_type = State()
+    choosing_policy = State()
     entering_value = State()
     confirming = State()
 
@@ -45,7 +46,21 @@ async def add_entrypoint(m: Message, state: FSMContext) -> None:
 async def on_choose_type(c: CallbackQuery, state: FSMContext) -> None:
     _, _, raw_type = c.data.split(":", 2)
     await state.update_data(rule_type=raw_type)
+    await state.set_state(AddRule.choosing_policy)
+    from bot.keyboards.policy import policy_kb
+    await c.message.edit_text("Выберите политику для правила:", reply_markup=policy_kb().as_markup())
+    await c.answer()
+
+
+@router.callback_query(F.data.startswith("add:policy:"))
+async def on_choose_policy(c: CallbackQuery, state: FSMContext) -> None:
+    _, _, policy = c.data.split(":", 2)
+    await state.update_data(policy=policy)
     await state.set_state(AddRule.entering_value)
+    
+    data = await state.get_data()
+    raw_type = data.get("rule_type")
+    
     if raw_type == RuleType.IP_CIDR.value:
         text = (
             "Введите IP-адрес или диапазон (например: 192.168.1.1 или 10.0.0.0/8).\n\nОтмена: /cancel"
@@ -59,6 +74,26 @@ async def on_choose_type(c: CallbackQuery, state: FSMContext) -> None:
             "Введите домен (например: google.com). Можно прислать URL — я извлеку домен.\n\nОтмена: /cancel"
         )
     await c.message.edit_text(text)
+    await c.answer()
+
+
+@router.callback_query(F.data.in_({"add:back:policy", "add:back:type", "add:back:menu"}))
+async def on_back_navigation(c: CallbackQuery, state: FSMContext) -> None:
+    action = c.data.split(":")[-1]
+    
+    if action == "policy":
+        await state.set_state(AddRule.choosing_type)
+        await c.message.edit_text("Выберите тип правила:", reply_markup=rule_type_kb().as_markup())
+    elif action == "type":
+        data = await state.get_data()
+        raw_type = data.get("rule_type")
+        await state.set_state(AddRule.choosing_policy)
+        from bot.keyboards.policy import policy_kb
+        await c.message.edit_text("Выберите политику для правила:", reply_markup=policy_kb().as_markup())
+    elif action == "menu":
+        await state.clear()
+        await c.message.edit_text("Отменено.")
+    
     await c.answer()
 
 
@@ -82,8 +117,9 @@ async def on_enter_value(m: Message, state: FSMContext, store: GitHubFileStore) 
 
     data = await state.get_data()
     raw_type = data.get("rule_type")
-    if not raw_type:
-        await m.answer("⚠️ Сначала выберите тип правила")
+    policy = data.get("policy")
+    if not raw_type or not policy:
+        await m.answer("⚠️ Сначала выберите тип правила и политику")
         return
 
     value_raw = (m.text or "").strip()
@@ -126,7 +162,8 @@ async def on_enter_value(m: Message, state: FSMContext, store: GitHubFileStore) 
 
     loading_msg = await m.answer("⌛ Проверяю конфиг...")
     try:
-        fetched = await store.fetch()
+        file_path = store.get_path_for_policy(policy)
+        fetched = await store.fetch(file_path=file_path)
         lines = parse_text(fetched["text"])
         if loading_msg:
             await loading_msg.delete()
@@ -168,10 +205,12 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
     data = await state.get_data()
     rtype = RuleType(data["rule_type"])  # type: ignore[arg-type]
     value = data["value"]
+    policy = data["policy"]
     username = c.from_user.username if c.from_user else None
 
     try:
-        fetched = await store.fetch()
+        file_path = store.get_path_for_policy(policy)
+        fetched = await store.fetch(file_path=file_path)
         lines = parse_text(fetched["text"])
     except Exception as e:
         await c.message.edit_text(f"❌ Ошибка загрузки конфига: {e}")
@@ -199,7 +238,7 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
         new_lines = rf_add_rule(lines, rule, cmnt)
         new_text = render_lines(new_lines)
         try:
-            resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"])
+            resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"], file_path=file_path)
         except Exception as e:
             await c.message.edit_text(f"❌ Ошибка сохранения в GitHub: {e}")
             await state.clear()
@@ -232,7 +271,7 @@ async def on_confirm(c: CallbackQuery, state: FSMContext, store: GitHubFileStore
             new_lines = rf_add_rule(lines, rule, cmnt)
         new_text = render_lines(new_lines)
         try:
-            resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"])
+            resp = await store.commit(new_text, store.commit_message_add(rule_line(rule), username), username, None, fetched["sha"], file_path=file_path)
         except Exception as e:
             await c.message.edit_text(f"❌ Ошибка сохранения в GitHub: {e}")
             await state.clear()

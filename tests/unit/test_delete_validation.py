@@ -28,12 +28,15 @@ class FakeState:
 class StoreWithChangedFile(GitHubFileStore):
     def __init__(self):
         pass
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        return "rules/private.list"
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         # Return file where the rule at index 0 is now a comment
         return {"sha": "sha1", "text": "# This was a rule\nDOMAIN,other.com\n"}
 
-    async def commit(self, *args, **kwargs):
+    async def commit(self, *args, file_path=None, **kwargs):
         return {"commit": {"html_url": "https://example.com/commit/1"}}
 
 

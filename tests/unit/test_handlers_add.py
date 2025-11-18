@@ -30,23 +30,29 @@ class FakeState:
 class StoreNew(GitHubFileStore):
     def __init__(self):
         pass
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        return "rules/private.list"
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         return {"sha": "sha0", "text": "# header\n"}
 
-    async def commit(self, *args, **kwargs):
+    async def commit(self, *args, file_path=None, **kwargs):
         return {"commit": {"html_url": "https://example.com/commit/1"}}
 
 
 class StoreExisting(GitHubFileStore):
     def __init__(self):
         pass
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        return "rules/private.list"
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         # existing with third column to verify policy removal path
         return {"sha": "sha1", "text": "DOMAIN,example.com,PROXY\n"}
 
-    async def commit(self, *args, **kwargs):
+    async def commit(self, *args, file_path=None, **kwargs):
         return {"commit": {"html_url": "https://example.com/commit/2"}}
 
 

@@ -17,7 +17,7 @@ async def test_add_rule_shows_loading():
     m.text = "google.com"
     
     state = AsyncMock()
-    state.get_data.return_value = {"rule_type": "DOMAIN"}
+    state.get_data.return_value = {"rule_type": "DOMAIN", "policy": "PROXY"}
     state.set_state = AsyncMock()
     state.update_data = AsyncMock()
     

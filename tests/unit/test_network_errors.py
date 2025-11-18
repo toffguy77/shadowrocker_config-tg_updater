@@ -29,11 +29,14 @@ class FakeState:
 class StoreWithError(GitHubFileStore):
     def __init__(self):
         pass
+    
+    def get_path_for_policy(self, policy: str) -> str:
+        return "rules/private.list"
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         raise Exception("Network timeout")
 
-    async def commit(self, *args, **kwargs):
+    async def commit(self, *args, file_path=None, **kwargs):
         raise Exception("GitHub API error")
 
 

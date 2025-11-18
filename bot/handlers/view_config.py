@@ -58,14 +58,15 @@ async def recent_command(m: Message, store: GitHubFileStore) -> None:
 PAGE_SIZE = 20
 
 
-async def build_view_response(store: GitHubFileStore, policy: str | None = None, page: int = 0, rule_type: str | None = None):
-    fetched = await store.fetch()
+async def build_view_response(store: GitHubFileStore, policy: str | None = None, page: int = 0, rule_type: str | None = None, file_type: str = "PROXY"):
+    file_path = store.get_path_for_policy(file_type)
+    fetched = await store.fetch(file_path=file_path)
     lines = parse_text(fetched["text"])
     rules = list_rules(lines)
     filtered = _filter_rules(rules, None if policy in (None, "ALL") else policy)
     if rule_type and rule_type != "ALL":
         filtered = [r for r in filtered if r[1].type.value == rule_type]
-    body, kb = _render_page(filtered, page, rule_type or "ALL", rules)
+    body, kb = _render_page(filtered, page, rule_type or "ALL", rules, file_type)
     return body, kb.as_markup()
 
 
@@ -76,7 +77,7 @@ def _filter_rules(rules: List[Tuple[int, object]], policy: str | None):
     return rules
 
 
-def _render_page(filtered, page: int, rule_type: str, all_rules) -> tuple[str, InlineKeyboardBuilder]:
+def _render_page(filtered, page: int, rule_type: str, all_rules, file_type: str = "PROXY") -> tuple[str, InlineKeyboardBuilder]:
     from collections import Counter
     sorted_rules = sorted(filtered, key=lambda x: (x[1].value.lower(), x[1].type.value))
 
@@ -93,22 +94,30 @@ def _render_page(filtered, page: int, rule_type: str, all_rules) -> tuple[str, I
         lines.append(f"{i}. `{describe_rule(rule)}`")
 
     kb = InlineKeyboardBuilder()
-    kb.button(text="🌐 DOMAIN-SUFFIX", callback_data=f"view:DOMAIN-SUFFIX:page:0")
-    kb.button(text="🎯 DOMAIN", callback_data=f"view:DOMAIN:page:0")
-    kb.button(text="🔍 KEYWORD", callback_data=f"view:DOMAIN-KEYWORD:page:0")
-    kb.button(text="🔢 IP-CIDR", callback_data=f"view:IP-CIDR:page:0")
-    kb.button(text="📋 ВСЕ", callback_data=f"view:ALL:page:0")
+    # File type selection
+    proxy_text = "🚀 PROXY" if file_type == "PROXY" else "🚀 Proxy"
+    direct_text = "⚡ DIRECT" if file_type == "DIRECT" else "⚡ Direct"
+    kb.button(text=proxy_text, callback_data=f"view:file:PROXY:{rule_type}:page:{page}")
+    kb.button(text=direct_text, callback_data=f"view:file:DIRECT:{rule_type}:page:{page}")
+    kb.adjust(2)
+    
+    # Rule type selection
+    kb.button(text="🌐 DOMAIN-SUFFIX", callback_data=f"view:type:DOMAIN-SUFFIX:file:{file_type}:page:0")
+    kb.button(text="🎯 DOMAIN", callback_data=f"view:type:DOMAIN:file:{file_type}:page:0")
+    kb.button(text="🔍 KEYWORD", callback_data=f"view:type:DOMAIN-KEYWORD:file:{file_type}:page:0")
+    kb.button(text="🔢 IP-CIDR", callback_data=f"view:type:IP-CIDR:file:{file_type}:page:0")
+    kb.button(text="📋 ВСЕ", callback_data=f"view:type:ALL:file:{file_type}:page:0")
     kb.adjust(2)
     
     nav = InlineKeyboardBuilder()
     if start > 0:
-        nav.button(text=f"⬅️ {page}", callback_data=f"view:{rule_type}:page:{page-1}")
+        nav.button(text=f"⬅️ {page}", callback_data=f"view:type:{rule_type}:file:{file_type}:page:{page-1}")
     if end < total:
-        nav.button(text=f"➡️ {page+2}", callback_data=f"view:{rule_type}:page:{page+1}")
+        nav.button(text=f"➡️ {page+2}", callback_data=f"view:type:{rule_type}:file:{file_type}:page:{page+1}")
     if nav.buttons:
         kb.attach(nav)
     
-    kb.button(text="💾 Скачать", callback_data="view:download")
+    kb.button(text="💾 Скачать", callback_data=f"view:download:{file_type}")
     return "\n".join(lines) if total else "📋 Конфиг пуст\n\nДобавьте первое правило!", kb
 
 
@@ -116,7 +125,7 @@ def _render_page(filtered, page: int, rule_type: str, all_rules) -> tuple[str, I
 @router.message(Command("view"))
 async def view_config(m: Message, store: GitHubFileStore) -> None:
     try:
-        body, markup = await build_view_response(store, policy="ALL", page=0, rule_type="ALL")
+        body, markup = await build_view_response(store, policy="ALL", page=0, rule_type="ALL", file_type="PROXY")
     except Exception:
         await m.answer("❌ Не удалось получить конфиг из GitHub")
         return
@@ -127,22 +136,37 @@ async def view_config(m: Message, store: GitHubFileStore) -> None:
 @router.callback_query(F.data.startswith("view:"))
 async def on_view_pager(c: CallbackQuery, store: GitHubFileStore) -> None:
     parts = c.data.split(":")
+    
     if parts[1] == "download":
+        file_type = parts[2] if len(parts) > 2 else "PROXY"
         try:
-            fetched = await store.fetch()
+            file_path = store.get_path_for_policy(file_type)
+            fetched = await store.fetch(file_path=file_path)
             from aiogram.types import BufferedInputFile
-            file = BufferedInputFile(fetched["text"].encode(), filename="shadowrocket.conf")
-            await c.message.answer_document(file, caption="📥 Конфиг Shadowrocket")
+            filename = f"shadowrocket_{file_type.lower()}.conf"
+            file = BufferedInputFile(fetched["text"].encode(), filename=filename)
+            await c.message.answer_document(file, caption=f"📥 Конфиг Shadowrocket ({file_type})")
             await c.answer("✅ Файл отправлен")
         except Exception:
             await c.answer("❌ Ошибка скачивания", show_alert=True)
         return
     
-    rule_type = parts[1] if len(parts) > 1 else "ALL"
-    page = int(parts[3]) if len(parts) > 3 and parts[2] == "page" else 0
+    # Parse new format: view:type:RULE_TYPE:file:FILE_TYPE:page:N or view:file:FILE_TYPE:RULE_TYPE:page:N
+    rule_type = "ALL"
+    file_type = "PROXY"
+    page = 0
+    
+    if parts[1] == "type" and len(parts) >= 6:
+        rule_type = parts[2]
+        file_type = parts[4] if parts[3] == "file" else "PROXY"
+        page = int(parts[6]) if len(parts) > 6 and parts[5] == "page" else 0
+    elif parts[1] == "file" and len(parts) >= 4:
+        file_type = parts[2]
+        rule_type = parts[3]
+        page = int(parts[5]) if len(parts) > 5 and parts[4] == "page" else 0
 
     try:
-        body, markup = await build_view_response(store, policy="ALL", page=page, rule_type=rule_type)
+        body, markup = await build_view_response(store, policy="ALL", page=page, rule_type=rule_type, file_type=file_type)
     except Exception:
         await c.answer("❌ Ошибка загрузки", show_alert=True)
         return

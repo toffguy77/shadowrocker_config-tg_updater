@@ -14,12 +14,12 @@ async def test_commit_logs_context(monkeypatch, caplog):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
 
     with caplog.at_level(logging.INFO):
         with aioresponses() as m:
@@ -40,12 +40,12 @@ async def test_commit_success_logs(monkeypatch, caplog):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
 
     with caplog.at_level(logging.INFO):
         with aioresponses() as m:
@@ -63,12 +63,12 @@ async def test_conflict_retry_logs(monkeypatch, caplog):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
     get_url = f"{url}?ref=main"
 
     with caplog.at_level(logging.WARNING):

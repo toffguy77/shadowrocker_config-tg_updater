@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     github_token: str = Field(alias="GITHUB_TOKEN")
     github_owner: str = Field(default="toffguy77", alias="GITHUB_OWNER")
     github_repo: str = Field(default="shadowrocket-configuration-file", alias="GITHUB_REPO")
-    github_path: str = Field(default="rules/private.list", alias="GITHUB_PATH")
+    github_path_proxy: str = Field(default="rules/private.list", alias="GITHUB_PATH_PROXY")
+    github_path_direct: str = Field(default="rules/private.direct.list", alias="GITHUB_PATH_DIRECT")
     github_branch: str = Field(default="main", alias="GITHUB_BRANCH")
 
     allowed_users: List[int] = Field(default_factory=list, alias="ALLOWED_USERS")

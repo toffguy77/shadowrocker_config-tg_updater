@@ -15,12 +15,12 @@ async def test_github_fetch_timeout(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
 
     with aioresponses() as m:
         m.get(f"{url}?ref=main", exception=aiohttp.ClientError("timeout"))
@@ -36,12 +36,12 @@ async def test_github_commit_409_retry(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
     get_url = f"{url}?ref=main"
 
     with aioresponses() as m:
@@ -64,12 +64,12 @@ async def test_github_commit_500_retry(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
     get_url = f"{url}?ref=main"
 
     with aioresponses() as m:
@@ -92,12 +92,12 @@ async def test_github_commit_400_no_retry(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t")
     monkeypatch.setenv("GITHUB_OWNER", "o")
     monkeypatch.setenv("GITHUB_REPO", "r")
-    monkeypatch.setenv("GITHUB_PATH", "p.txt")
+    monkeypatch.setenv("GITHUB_PATH_PROXY", "p.txt")
     monkeypatch.setenv("GITHUB_BRANCH", "main")
     settings = Settings()
     store = GitHubFileStore(settings)
 
-    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path}"
+    url = f"https://api.github.com/repos/{settings.github_owner}/{settings.github_repo}/contents/{settings.github_path_proxy}"
 
     with aioresponses() as m:
         m.put(url, status=400, body="Bad Request")

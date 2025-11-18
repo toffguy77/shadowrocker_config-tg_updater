@@ -8,7 +8,7 @@ async def test_get_recent_commits_error():
     settings = MagicMock()
     settings.github_owner = "owner"
     settings.github_repo = "repo"
-    settings.github_path = "config.conf"
+    settings.github_path_proxy = "config.conf"
     settings.github_branch = "main"
     settings.github_token = "test"
     

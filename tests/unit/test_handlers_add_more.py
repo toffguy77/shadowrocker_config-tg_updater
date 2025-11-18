@@ -25,10 +25,10 @@ class StoreExisting(GitHubFileStore):
     def __init__(self, text):
         self._text = text
 
-    async def fetch(self):
+    async def fetch(self, file_path: str = None):
         return {"sha": "sha1", "text": self._text}
 
-    async def commit(self, *args, **kwargs):
+    async def commit(self, *args, file_path=None, **kwargs):
         return {"commit": {"html_url": "https://example.com/commit/x"}}
 
 
@@ -48,14 +48,14 @@ async def test_add_keep_and_cancel(monkeypatch):
 
     # keep
     cq_keep = CallbackQuery(id="1", from_user=user, chat_instance="ci", data="add:confirm:keep", message=m)
-    state = FakeState({"rule_type": "DOMAIN", "value": "a.com"})
+    state = FakeState({"rule_type": "DOMAIN", "value": "a.com", "policy": "PROXY"})
     store = StoreExisting("DOMAIN,a.com\n")
     await on_confirm(cq_keep, state, store)
     assert any("Оставили" in t for t in edited) and state.cleared
 
     # cancel
     cq_cancel = CallbackQuery(id="2", from_user=user, chat_instance="ci", data="add:confirm:cancel", message=m)
-    state2 = FakeState({"rule_type": "DOMAIN", "value": "a.com"})
+    state2 = FakeState({"rule_type": "DOMAIN", "value": "a.com", "policy": "PROXY"})
     edited.clear()
     await on_confirm(cq_cancel, state2, store)
     assert any("Отменено" in t for t in edited) and state2.cleared
@@ -77,7 +77,7 @@ async def test_add_add_conflict_branch(monkeypatch):
 
     # When rule already exists, 'add' branch should fall back to conflict flow
     cq_add = CallbackQuery(id="1", from_user=user, chat_instance="ci", data="add:confirm:add", message=m)
-    state = FakeState({"rule_type": "DOMAIN", "value": "a.com"})
+    state = FakeState({"rule_type": "DOMAIN", "value": "a.com", "policy": "PROXY"})
     store = StoreExisting("DOMAIN,a.com\n")
     await on_confirm(cq_add, state, store)
     assert any("Конфликт" in t or "уже существует" in t for t in edited)
