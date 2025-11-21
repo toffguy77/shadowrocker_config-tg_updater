@@ -5,7 +5,7 @@ def main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="➕ Добавить правило"), KeyboardButton(text="🗑️ Удалить правило")],
-            [KeyboardButton(text="📋 Просмотр конфига")],
+            [KeyboardButton(text="📋 Просмотр конфига"), KeyboardButton(text="🔍 Проверка URL")],
             [KeyboardButton(text="🏠 Главное меню")],
         ],
         resize_keyboard=True,

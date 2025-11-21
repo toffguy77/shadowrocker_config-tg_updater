@@ -11,7 +11,7 @@ from bot.config import get_settings
 from bot.utils.logger import setup_logging
 from bot.metrics import start_metrics_server
 from bot.services.github_store import GitHubFileStore
-from bot.handlers import start, add_rule, view_config, delete_rule, cancel
+from bot.handlers import start, add_rule, view_config, delete_rule, cancel, url_check
 from bot.middlewares.access import AccessMiddleware
 from bot.middlewares.logging import LoggingMiddleware
 
@@ -40,6 +40,7 @@ async def main() -> None:
         add_rule.router,
         view_config.router,
         delete_rule.router,
+        url_check.router,
         __import__("bot.handlers.normalize", fromlist=["router"]).router,
     )
 
