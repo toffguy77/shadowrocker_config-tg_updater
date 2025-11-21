@@ -55,7 +55,7 @@ async def test_add_rule_fetch_error(monkeypatch):
     monkeypatch.setattr(Message, "answer", m_answer)
 
     state = FakeState()
-    await state.update_data(rule_type="DOMAIN")
+    await state.update_data(rule_type="DOMAIN", policy="PROXY")
     await state.set_state(AddRule.entering_value)
 
     store = StoreWithError()
@@ -83,7 +83,7 @@ async def test_add_rule_commit_error(monkeypatch):
     monkeypatch.setattr(CallbackQuery, "answer", cq_answer)
 
     state = FakeState()
-    await state.update_data(rule_type="DOMAIN", value="example.com")
+    await state.update_data(rule_type="DOMAIN", value="example.com", policy="PROXY")
 
     store = StoreWithError()
     await on_confirm(cq, state, store)

@@ -81,12 +81,15 @@ async def test_add_rule_new_flow(monkeypatch):
 
     await add_entrypoint(m, state)
     await on_choose_type(cq, state)
+    await state.update_data(policy="PROXY")
 
     store = StoreNew()
+    store.path_proxy = "rules/private.list"
+    store.path_direct = "rules/private.direct.list"
     m2 = Message(message_id=2, date=dt.datetime.now(dt.timezone.utc), chat=Chat(id=1, type="private"), text="example.com")
     await on_enter_value(m2, state, store)
 
-    assert any("Правило:" in t for t in sent["texts"])  # preview shown
+    assert any("Тип:" in t or "Правило:" in t for t in sent["texts"])  # preview shown
 
     cq2 = CallbackQuery(id="2", from_user=cuser, chat_instance="ci", data="add:confirm:add", message=m)
     await on_confirm(cq2, state, store)
@@ -118,8 +121,11 @@ async def test_add_rule_replace_existing(monkeypatch):
 
     state = FakeState()
     await on_choose_type(cq, state)
+    await state.update_data(policy="PROXY")
 
     store = StoreExisting()
+    store.path_proxy = "rules/private.list"
+    store.path_direct = "rules/private.direct.list"
     m2 = Message(message_id=2, date=dt.datetime.now(dt.timezone.utc), chat=Chat(id=1, type="private"), text="example.com")
     await on_enter_value(m2, state, store)
 

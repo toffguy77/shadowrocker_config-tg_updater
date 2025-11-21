@@ -24,8 +24,10 @@ class FakeState:
 class StoreExisting(GitHubFileStore):
     def __init__(self, text):
         self._text = text
+        self.path_proxy = "rules/private.list"
+        self.path_direct = "rules/private.direct.list"
 
-    async def fetch(self, file_path: str = None):
+    async def fetch(self, file_path: str = None, retry: int = 2):
         return {"sha": "sha1", "text": self._text}
 
     async def commit(self, *args, file_path=None, **kwargs):
