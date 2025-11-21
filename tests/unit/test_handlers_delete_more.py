@@ -21,8 +21,10 @@ class FakeState:
 class StoreText(GitHubFileStore):
     def __init__(self, text):
         self._text = text
+        self.path_proxy = "rules/private.list"
+        self.path_direct = "rules/private.direct.list"
 
-    async def fetch(self, file_path: str = None):
+    async def fetch(self, file_path: str = None, retry: int = 2):
         return {"sha": "sha0", "text": self._text}
 
     async def commit(self, *args, file_path=None, **kwargs):
@@ -53,7 +55,7 @@ async def test_delete_no_and_index_out(monkeypatch):
     # idx out of range
     edited.clear()
     cq_yes = CallbackQuery(id="2", from_user=user, chat_instance="ci", data="del:confirm:yes", message=m)
-    state2 = FakeState({"delete_idx": 5})
+    state2 = FakeState({"delete_idx": 5, "file_type": "PROXY"})
     await on_del_confirm(cq_yes, state2, store)
     assert any("Не удалось удалить" in t for t in edited) and state2.cleared
 
@@ -79,6 +81,6 @@ async def test_delete_on_del_page(monkeypatch):
     # state with previous filter (simulate query)
     class S:
         async def get_data(self):
-            return {"delete_filter": "x"}
+            return {"delete_filter": "x", "file_type": "PROXY"}
     await on_del_page(cq_page, S(), store)
     assert edited  # something was edited

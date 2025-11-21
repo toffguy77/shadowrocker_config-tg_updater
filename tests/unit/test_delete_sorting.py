@@ -43,10 +43,9 @@ def test_delete_page_button_text_shows_rule():
     
     markup = builder.as_markup()
     buttons = [btn for row in markup.inline_keyboard for btn in row]
-    # Buttons should show rule content (truncated to 20 chars)
-    # After sorting: 10.0.0.0/8 comes before example.com alphabetically
-    assert "10.0.0.0/8" in buttons[0].text
-    assert "example.com" in buttons[1].text
+    # Buttons now show numbers instead of truncated text
+    assert "❌ 1" == buttons[0].text
+    assert "❌ 2" == buttons[1].text
     # Verify callback_data uses original file indices
     assert "del:pick:1:" in buttons[0].callback_data  # IP rule was at index 1
     assert "del:pick:0:" in buttons[1].callback_data  # DOMAIN rule was at index 0

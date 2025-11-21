@@ -30,8 +30,10 @@ class FakeState:
 class StoreDel(GitHubFileStore):
     def __init__(self, text):
         self._text = text
+        self.path_proxy = "rules/private.list"
+        self.path_direct = "rules/private.direct.list"
 
-    async def fetch(self, file_path: str = None):
+    async def fetch(self, file_path: str = None, retry: int = 2):
         return {"sha": "sha0", "text": self._text}
 
     async def commit(self, *args, file_path=None, **kwargs):
@@ -60,8 +62,11 @@ async def test_delete_rule_yes(monkeypatch):
         return None
     monkeypatch.setattr(CallbackQuery, "answer", cq_answer)
 
-    # entrypoint shows list
+    # entrypoint shows file selection
     await delete_entrypoint(m, state, store)
+    
+    # Set file_type in state (simulating file selection)
+    await state.update_data(file_type="PROXY")
 
     # pick first rule (idx=0), page=0
     cuser = User(id=123, is_bot=False, first_name="U")
